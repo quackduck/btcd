@@ -62,6 +62,13 @@ type CreateRawTransactionCmd struct {
 	LockTime *int64
 }
 
+// CreatePSBTTransactionCmd defines the createrawtransaction JSON-RPC command.
+type CreatePSBTTransactionCmd struct {
+	Inputs   []TransactionInput
+	Amounts  map[string]float64 `jsonrpcusage:"{\"address\":amount,...}"` // In BTC
+	LockTime *int64
+}
+
 // NewCreateRawTransactionCmd returns a new instance which can be used to issue
 // a createrawtransaction JSON-RPC command.
 //
@@ -81,6 +88,25 @@ func NewCreateRawTransactionCmd(inputs []TransactionInput, amounts map[string]fl
 	}
 }
 
+// NewCreatePSBTTransactionCmd returns a new instance which can be used to issue
+// a createpsbttransaction JSON-RPC command.
+//
+// Amounts are in BTC. Passing in nil and the empty slice as inputs is equivalent,
+// both gets interpreted as the empty slice.
+func NewCreatePSBTTransactionCmd(inputs []TransactionInput, amounts map[string]float64,
+	lockTime *int64) *CreatePSBTTransactionCmd {
+	// to make sure we're serializing this to the empty list and not null, we
+	// explicitly initialize the list
+	if inputs == nil {
+		inputs = []TransactionInput{}
+	}
+	return &CreatePSBTTransactionCmd{
+		Inputs:   inputs,
+		Amounts:  amounts,
+		LockTime: lockTime,
+	}
+}
+
 // DecodeRawTransactionCmd defines the decoderawtransaction JSON-RPC command.
 type DecodeRawTransactionCmd struct {
 	HexTx string
@@ -90,6 +116,19 @@ type DecodeRawTransactionCmd struct {
 // a decoderawtransaction JSON-RPC command.
 func NewDecodeRawTransactionCmd(hexTx string) *DecodeRawTransactionCmd {
 	return &DecodeRawTransactionCmd{
+		HexTx: hexTx,
+	}
+}
+
+// DecodePSBTCmd defines the decoderawtransaction JSON-RPC command.
+type DecodePSBTCmd struct {
+	HexTx string
+}
+
+// NewDecodePSBTCmd returns a new instance which can be used to issue
+// a decoderawtransaction JSON-RPC command.
+func NewDecodePSBTCmd(hexTx string) *DecodePSBTCmd {
+	return &DecodePSBTCmd{
 		HexTx: hexTx,
 	}
 }
@@ -1048,7 +1087,9 @@ func init() {
 
 	MustRegisterCmd("addnode", (*AddNodeCmd)(nil), flags)
 	MustRegisterCmd("createrawtransaction", (*CreateRawTransactionCmd)(nil), flags)
+	MustRegisterCmd("createpsbt", (*CreatePSBTTransactionCmd)(nil), flags)
 	MustRegisterCmd("decoderawtransaction", (*DecodeRawTransactionCmd)(nil), flags)
+	MustRegisterCmd("decodepsbt", (*DecodePSBTCmd)(nil), flags)
 	MustRegisterCmd("decodescript", (*DecodeScriptCmd)(nil), flags)
 	MustRegisterCmd("deriveaddresses", (*DeriveAddressesCmd)(nil), flags)
 	MustRegisterCmd("fundrawtransaction", (*FundRawTransactionCmd)(nil), flags)

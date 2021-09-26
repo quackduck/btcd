@@ -721,6 +721,23 @@ type TxRawResult struct {
 	Time          int64  `json:"time,omitempty"`
 	Blocktime     int64  `json:"blocktime,omitempty"`
 }
+// TxRawResult models the data from the getrawtransaction command.
+type TxPSBTResult struct {
+	Hex           string `json:"hex"`
+	Txid          string `json:"txid"`
+	Hash          string `json:"hash,omitempty"`
+	Size          int32  `json:"size,omitempty"`
+	Vsize         int32  `json:"vsize,omitempty"`
+	Weight        int32  `json:"weight,omitempty"`
+	Version       uint32 `json:"version"`
+	LockTime      uint32 `json:"locktime"`
+	Vin           []Vin  `json:"vin"`
+	Vout          []Vout `json:"vout"`
+	BlockHash     string `json:"blockhash,omitempty"`
+	Confirmations uint64 `json:"confirmations,omitempty"`
+	Time          int64  `json:"time,omitempty"`
+	Blocktime     int64  `json:"blocktime,omitempty"`
+}
 
 // SearchRawTransactionsResult models the data from the searchrawtransaction
 // command.

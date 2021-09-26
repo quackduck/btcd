@@ -170,6 +170,11 @@ func (c *Client) GetRawTransactionVerbose(txHash *chainhash.Hash) (*btcjson.TxRa
 // of a DecodeRawTransactionAsync RPC invocation (or an applicable error).
 type FutureDecodeRawTransactionResult chan *Response
 
+// FutureDecodePSBTResult is a future promise to deliver the result
+// of a DecodeRawPSBTAsync RPC invocation (or an applicable error).
+type FutureDecodePSBTResult chan *Response
+
+
 // Receive waits for the Response promised by the future and returns information
 // about a transaction given its serialized bytes.
 func (r FutureDecodeRawTransactionResult) Receive() (*btcjson.TxRawResult, error) {
@@ -188,6 +193,24 @@ func (r FutureDecodeRawTransactionResult) Receive() (*btcjson.TxRawResult, error
 	return &rawTxResult, nil
 }
 
+// Receive waits for the Response promised by the future and returns information
+// about a transaction given its serialized bytes.
+func (r FutureDecodePSBTResult) Receive() (string, error) {
+	res, err := ReceiveFuture(r)
+	if err != nil {
+		return "", err
+	}
+
+	//// Unmarshal result as a decoderawtransaction result object.
+	//var rawTxResult btcjson.TxRawResult
+	//err = json.Unmarshal(res, &rawTxResult)
+	//if err != nil {
+	//	return nil, err
+	//}
+
+	return string(res), nil
+}
+
 // DecodeRawTransactionAsync returns an instance of a type that can be used to
 // get the result of the RPC at some future time by invoking the Receive
 // function on the returned instance.
@@ -199,10 +222,27 @@ func (c *Client) DecodeRawTransactionAsync(serializedTx []byte) FutureDecodeRawT
 	return c.SendCmd(cmd)
 }
 
+// DecodeRawTransactionAsync returns an instance of a type that can be used to
+// get the result of the RPC at some future time by invoking the Receive
+// function on the returned instance.
+//
+// See DecodeRawTransaction for the blocking version and more details.
+func (c *Client) DecodePSBTAsync(serializedTx string) FutureDecodePSBTResult {
+	//txHex := hex.EncodeToString(serializedTx)
+	cmd := btcjson.NewDecodePSBTCmd(serializedTx)
+	return c.SendCmd(cmd)
+}
+
 // DecodeRawTransaction returns information about a transaction given its
 // serialized bytes.
 func (c *Client) DecodeRawTransaction(serializedTx []byte) (*btcjson.TxRawResult, error) {
 	return c.DecodeRawTransactionAsync(serializedTx).Receive()
+}
+
+// DecodePSBT returns information about a transaction given its
+// serialized bytes.
+func (c *Client) DecodePSBT(serializedTx string) (string, error) {
+	return c.DecodePSBTAsync(serializedTx).Receive()
 }
 
 // FutureFundRawTransactionResult is a future promise to deliver the result
@@ -250,6 +290,10 @@ func (c *Client) FundRawTransaction(tx *wire.MsgTx, opts btcjson.FundRawTransact
 // of a CreateRawTransactionAsync RPC invocation (or an applicable error).
 type FutureCreateRawTransactionResult chan *Response
 
+// FutureCreatePSBTTransactionResult is a future promise to deliver the result
+// of a CreateRawTransactionAsync RPC invocation (or an applicable error).
+type FutureCreatePSBTTransactionResult chan *Response
+
 // Receive waits for the Response promised by the future and returns a new
 // transaction spending the provided inputs and sending to the provided
 // addresses.
@@ -285,6 +329,41 @@ func (r FutureCreateRawTransactionResult) Receive() (*wire.MsgTx, error) {
 	return &msgTx, nil
 }
 
+// Receive waits for the Response promised by the future and returns a new
+// transaction spending the provided inputs and sending to the provided
+// addresses.
+func (r FutureCreatePSBTTransactionResult) Receive() (string, error) {
+	res, err := ReceiveFuture(r)
+	if err != nil {
+		return "", err
+	}
+
+	// Unmarshal result as a string.
+	var txHex string
+	err = json.Unmarshal(res, &txHex)
+	if err != nil {
+		return "", err
+	}
+	//fmt.Println("txHex:", txHex)
+	//// Decode the serialized transaction hex to raw bytes.
+	//serializedTx, err := hex.DecodeString(txHex)
+	//if err != nil {
+	//	return nil, err
+	//}
+	//
+	//// Deserialize the transaction and return it.
+	//var msgTx wire.MsgTx
+	//// we try both the new and old encoding format
+	//witnessErr := msgTx.Deserialize(bytes.NewReader(serializedTx))
+	//if witnessErr != nil {
+	//	legacyErr := msgTx.DeserializeNoWitness(bytes.NewReader(serializedTx))
+	//	if legacyErr != nil {
+	//		return nil, legacyErr
+	//	}
+	//}
+	return txHex, nil
+}
+
 // CreateRawTransactionAsync returns an instance of a type that can be used to
 // get the result of the RPC at some future time by invoking the Receive
 // function on the returned instance.
@@ -301,6 +380,22 @@ func (c *Client) CreateRawTransactionAsync(inputs []btcjson.TransactionInput,
 	return c.SendCmd(cmd)
 }
 
+// CreateRawTransactionAsync returns an instance of a type that can be used to
+// get the result of the RPC at some future time by invoking the Receive
+// function on the returned instance.
+//
+// See CreateRawTransaction for the blocking version and more details.
+func (c *Client) CreatePSBTTransactionAsync(inputs []btcjson.TransactionInput,
+	amounts map[btcutil.Address]btcutil.Amount, lockTime *int64) FutureCreatePSBTTransactionResult {
+
+	convertedAmts := make(map[string]float64, len(amounts))
+	for addr, amount := range amounts {
+		convertedAmts[addr.String()] = amount.ToBTC()
+	}
+	cmd := btcjson.NewCreatePSBTTransactionCmd(inputs, convertedAmts, lockTime)
+	return c.SendCmd(cmd)
+}
+
 // CreateRawTransaction returns a new transaction spending the provided inputs
 // and sending to the provided addresses. If the inputs are either nil or an
 // empty slice, it is interpreted as an empty slice.
@@ -309,6 +404,15 @@ func (c *Client) CreateRawTransaction(inputs []btcjson.TransactionInput,
 
 	return c.CreateRawTransactionAsync(inputs, amounts, lockTime).Receive()
 }
+
+// CreatePSBTTransaction returns a new transaction spending the provided inputs
+// and sending to the provided addresses. If the inputs are either nil or an
+// empty slice, it is interpreted as an empty slice.
+func (c *Client) CreatePSBTTransaction(inputs []btcjson.TransactionInput,
+	amounts map[btcutil.Address]btcutil.Amount, lockTime *int64) (string, error) {
+	return c.CreatePSBTTransactionAsync(inputs, amounts, lockTime).Receive()
+}
+
 
 // FutureSendRawTransactionResult is a future promise to deliver the result
 // of a SendRawTransactionAsync RPC invocation (or an applicable error).
